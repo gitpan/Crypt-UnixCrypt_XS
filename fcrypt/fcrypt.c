@@ -9,7 +9,7 @@
  * eay@psych.psy.uq.oz.au
  */
 
-typedef unsigned char des_cblock[8];
+#include "fcrypt.h"
 
 typedef struct des_ks_struct
 	{
@@ -337,13 +337,6 @@ static unsigned long skb[8][64]={
 
 static char shifts2[16]={0,0,1,1,1,1,1,1,0,1,1,1,1,1,1,0};
 
-static int body(
-	unsigned long *out0,
-	unsigned long *out1,
-	des_key_schedule ks,
-	unsigned long Eswap0,
-	unsigned long Eswap1);
-
 static int
 des_set_key(des_cblock *key, des_key_schedule schedule)
 	{
@@ -445,121 +438,49 @@ des_set_key(des_cblock *key, des_key_schedule schedule)
 		SPtrans[6][(u>>24)&0x3f];
 #endif
 
-unsigned char con_salt[128]={
-0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,
-0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,
-0x0A,0x0B,0x05,0x06,0x07,0x08,0x09,0x0A,
-0x0B,0x0C,0x0D,0x0E,0x0F,0x10,0x11,0x12,
-0x13,0x14,0x15,0x16,0x17,0x18,0x19,0x1A,
-0x1B,0x1C,0x1D,0x1E,0x1F,0x20,0x21,0x22,
-0x23,0x24,0x25,0x20,0x21,0x22,0x23,0x24,
-0x25,0x26,0x27,0x28,0x29,0x2A,0x2B,0x2C,
-0x2D,0x2E,0x2F,0x30,0x31,0x32,0x33,0x34,
-0x35,0x36,0x37,0x38,0x39,0x3A,0x3B,0x3C,
-0x3D,0x3E,0x3F,0x00,0x00,0x00,0x00,0x00,
-};
-
-unsigned char cov_2char[64]={
-0x2E,0x2F,0x30,0x31,0x32,0x33,0x34,0x35,
-0x36,0x37,0x38,0x39,0x41,0x42,0x43,0x44,
-0x45,0x46,0x47,0x48,0x49,0x4A,0x4B,0x4C,
-0x4D,0x4E,0x4F,0x50,0x51,0x52,0x53,0x54,
-0x55,0x56,0x57,0x58,0x59,0x5A,0x61,0x62,
-0x63,0x64,0x65,0x66,0x67,0x68,0x69,0x6A,
-0x6B,0x6C,0x6D,0x6E,0x6F,0x70,0x71,0x72,
-0x73,0x74,0x75,0x76,0x77,0x78,0x79,0x7A
-};
-
-char *
-des_fcrypt(const char *buf, const char *salt, char *buff)
+void
+crypt_rounds(
+	des_cblock key,
+	unsigned long nrounds,
+	unsigned long saltnum,
+	des_cblock block)
 	{
-	unsigned int i,j,x,y;
-	unsigned long Eswap0=0,Eswap1=0;
-	unsigned long out[2],ll;
-	des_cblock key;
+	unsigned char *cp;
 	des_key_schedule ks;
-	unsigned char bb[9];
-	unsigned char *b=bb;
-	unsigned char c,u;
-
-	/* eay 25/08/92
-	 * If you call crypt("pwd","*") as often happens when you
-	 * have * as the pwd field in /etc/passwd, the function
-	 * returns *\0XXXXXXXXX
-	 * The \0 makes the string look like * so the pwd "*" would
-	 * crypt to "*".  This was found when replacing the crypt in
-	 * our shared libraries.  People found that the disbled
-	 * accounts effectivly had no passwd :-(. */
-	x=buff[0]=((salt[0] == '\0')?'A':salt[0]);
-	Eswap0=con_salt[x];
-	x=buff[1]=((salt[1] == '\0')?'A':salt[1]);
-	Eswap1=con_salt[x]<<4;
-
-	for (i=0; i<8; i++)
-		{
-		c= *(buf++);
-		if (!c) break;
-		key[i]=(c<<1);
-		}
-	for (; i<8; i++)
-		key[i]=0;
-
-	des_set_key((des_cblock *)(key),ks);
-	body(&out[0],&out[1],ks,Eswap0,Eswap1);
-
-	ll=out[0]; l2c(ll,b);
-	ll=out[1]; l2c(ll,b);
-	y=0;
-	u=0x80;
-	bb[8]=0;
-	for (i=2; i<13; i++)
-		{
-		c=0;
-		for (j=0; j<6; j++)
-			{
-			c<<=1;
-			if (bb[y] & u) c|=1;
-			u>>=1;
-			if (!u)
-				{
-				y++;
-				u=0x80;
-				}
-			}
-		buff[i]=cov_2char[c];
-		}
-	buff[13]='\0';
-	return buff;
-	}
-
-static int 
-body(	unsigned long *out0,
-	unsigned long *out1,
-	des_key_schedule ks,
-	unsigned long Eswap0,
-	unsigned long Eswap1)
-	{
 	register unsigned long l,r,t,u,v;
 #ifdef ALT_ECB
 	register unsigned char *des_SP=(unsigned char *)SPtrans;
 #endif
 	register unsigned long *s;
-	register int i,j;
+	register int i;
 	register unsigned long E0,E1;
 
-	l=0;
-	r=0;
+	E0 = (saltnum & 0x003f) | ((saltnum >> 4) & 0x3f00);
+	E1 = ((saltnum >> 2) & 0x03f0) | ((saltnum >> 6) & 0xf000) |
+		((saltnum >> 22) & 0x0003);
+
+	des_set_key((des_cblock *)key, ks);
+
+	cp = block;
+	c2l(cp, l);
+	c2l(cp, r);
+
+	PERM_OP(r,l,t, 4,0x0f0f0f0f);
+	PERM_OP(l,r,t,16,0x0000ffff);
+	PERM_OP(r,l,t, 2,0x33333333);
+	PERM_OP(l,r,t, 8,0x00ff00ff);
+	PERM_OP(r,l,t, 1,0x55555555);
+
+	t=(l<<1)|(l>>31);
+	l=(r<<1)|(r>>31);
+	r=t;
+	/* clear the top bits on machines with 8byte longs */
+	l&=0xffffffff;
+	r&=0xffffffff;
 
 	s=(unsigned long *)ks;
-	E0=Eswap0;
-	E1=Eswap1;
 
-	for (j=0; j<25; j++)
+	while(nrounds--)
 		{
 		for (i=0; i<(ITERATIONS*2); i+=4)
 			{
@@ -583,8 +504,192 @@ body(	unsigned long *out0,
 	PERM_OP(l,r,t,16,0x0000ffff);
 	PERM_OP(r,l,t, 4,0x0f0f0f0f);
 
-	*out0=l;
-	*out1=r;
-	return(0);
+	cp = block;
+	l2c(l, cp);
+	l2c(r, cp);
+	}
+
+unsigned char base64_char_to_val[128]={
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,
+0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,
+0x0A,0x0B,0x05,0x06,0x07,0x08,0x09,0x0A,
+0x0B,0x0C,0x0D,0x0E,0x0F,0x10,0x11,0x12,
+0x13,0x14,0x15,0x16,0x17,0x18,0x19,0x1A,
+0x1B,0x1C,0x1D,0x1E,0x1F,0x20,0x21,0x22,
+0x23,0x24,0x25,0x20,0x21,0x22,0x23,0x24,
+0x25,0x26,0x27,0x28,0x29,0x2A,0x2B,0x2C,
+0x2D,0x2E,0x2F,0x30,0x31,0x32,0x33,0x34,
+0x35,0x36,0x37,0x38,0x39,0x3A,0x3B,0x3C,
+0x3D,0x3E,0x3F,0x00,0x00,0x00,0x00,0x00,
+};
+
+unsigned char base64_val_to_char[64]={
+0x2E,0x2F,0x30,0x31,0x32,0x33,0x34,0x35,
+0x36,0x37,0x38,0x39,0x41,0x42,0x43,0x44,
+0x45,0x46,0x47,0x48,0x49,0x4A,0x4B,0x4C,
+0x4D,0x4E,0x4F,0x50,0x51,0x52,0x53,0x54,
+0x55,0x56,0x57,0x58,0x59,0x5A,0x61,0x62,
+0x63,0x64,0x65,0x66,0x67,0x68,0x69,0x6A,
+0x6B,0x6C,0x6D,0x6E,0x6F,0x70,0x71,0x72,
+0x73,0x74,0x75,0x76,0x77,0x78,0x79,0x7A
+};
+
+unsigned long
+base64_to_int12(
+	const char *base64)
+	{
+	return ((unsigned long)base64_char_to_val[base64[0] & 0x7f]) |
+		(((unsigned long)base64_char_to_val[base64[1] & 0x7f]) << 6);
+	}
+
+void
+int12_to_base64(
+	unsigned long val,
+	char *base64)
+	{
+	base64[0] = base64_val_to_char[val & 0x3f];
+	base64[1] = base64_val_to_char[(val >> 6) & 0x3f];
+	base64[2] = 0;
+	}
+
+unsigned long
+base64_to_int24(
+	const char *base64)
+	{
+	return ((unsigned long)base64_char_to_val[base64[0] & 0x7f]) |
+		(((unsigned long)base64_char_to_val[base64[1] & 0x7f]) << 6) |
+		(((unsigned long)base64_char_to_val[base64[2] & 0x7f]) << 12) |
+		(((unsigned long)base64_char_to_val[base64[3] & 0x7f]) << 18);
+	}
+
+void
+int24_to_base64(
+	unsigned long val,
+	char *base64)
+	{
+	base64[0] = base64_val_to_char[val & 0x3f];
+	base64[1] = base64_val_to_char[(val >> 6) & 0x3f];
+	base64[2] = base64_val_to_char[(val >> 12) & 0x3f];
+	base64[3] = base64_val_to_char[(val >> 18) & 0x3f];
+	base64[4] = 0;
+	}
+
+void
+block_to_base64(
+	des_cblock block,
+	char *base64)
+	{
+	base64[0] = base64_val_to_char[block[0] >> 2];
+	base64[1] = base64_val_to_char[((block[0]<<4) & 0x30) | (block[1]>>4)];
+	base64[2] = base64_val_to_char[((block[1]<<2) & 0x3c) | (block[2]>>6)];
+	base64[3] = base64_val_to_char[block[2] & 0x3f];
+	base64[4] = base64_val_to_char[block[3] >> 2];
+	base64[5] = base64_val_to_char[((block[3]<<4) & 0x30) | (block[4]>>4)];
+	base64[6] = base64_val_to_char[((block[4]<<2) & 0x3c) | (block[5]>>6)];
+	base64[7] = base64_val_to_char[block[5] & 0x3f];
+	base64[8] = base64_val_to_char[block[6] >> 2];
+	base64[9] = base64_val_to_char[((block[6]<<4) & 0x30) | (block[7]>>4)];
+	base64[10] = base64_val_to_char[(block[7]<<2) & 0x3c];
+	base64[11] = 0;
+	}
+
+void
+base64_to_block(
+	des_cblock block,
+	const char *base64)
+	{
+	unsigned char bb[11];
+	int i;
+	for(i = 0; i != 11; i++)
+		bb[i] = base64_char_to_val[base64[i] & 0x7f];
+	block[0] = (bb[0] << 2) | (bb[1] >> 4);
+	block[1] = ((bb[1] << 4) & 0xf0) | (bb[2] >> 2);
+	block[2] = ((bb[2] << 6) & 0xc0) | bb[3];
+	block[3] = (bb[4] << 2) | (bb[5] >> 4);
+	block[4] = ((bb[5] << 4) & 0xf0) | (bb[6] >> 2);
+	block[5] = ((bb[6] << 6) & 0xc0) | bb[7];
+	block[6] = (bb[8] << 2) | (bb[9] >> 4);
+	block[7] = ((bb[9] << 4) & 0xf0) | (bb[10] >> 2);
+	}
+
+void
+trad_password_to_key(
+	des_cblock key,
+	const char *password,
+	size_t passwordlen)
+	{
+	if(passwordlen > 8) passwordlen = 8;
+	int i;
+	for (i=0; i<passwordlen; i++)
+		key[i] = ((unsigned char)password[i]) << 1;
+	for (; i<8; i++)
+		key[i] = 0;
+	}
+
+void
+ext_password_to_key(
+	des_cblock key,
+	const char *password,
+	size_t passwordlen)
+	{
+	int i;
+	trad_password_to_key(key, password, passwordlen);
+	while(passwordlen > 8)
+		{
+		password += 8;
+		passwordlen -= 8;
+		crypt_rounds(key, 1, 0, key);
+		for(i=0; i<8 && i<passwordlen; i++)
+			key[i] ^= ((unsigned char)password[i]) << 1;
+		}
+	}
+
+void
+des_fcrypt(
+	const char *password,
+	size_t passwordlen,
+	const char *salt,
+	size_t saltlen,
+	char *outbuf)
+	{
+	unsigned long saltnum;
+	unsigned long nrounds;
+	des_cblock block, key;
+	int i;
+
+	if(saltlen == 0)
+		{
+		/* empty salt string indicates no password required */
+		outbuf[0] = 0;
+		return;
+		}
+
+	if(salt[0] == '_' && saltlen >= 9)
+		{
+		nrounds = base64_to_int24(salt + 1);
+		saltnum = base64_to_int24(salt + 5);
+		ext_password_to_key(key, password, passwordlen);
+		outbuf[0] = '_';
+		int24_to_base64(nrounds, outbuf + 1);
+		int24_to_base64(saltnum, outbuf + 5);
+		outbuf += 9;
+		}
+	else
+		{
+		nrounds = 25;
+		saltnum = base64_to_int12(salt);
+		trad_password_to_key(key, password, passwordlen);
+		int12_to_base64(saltnum, outbuf);
+		outbuf += 2;
+		}
+
+	memset(block, 0, sizeof(block));
+	crypt_rounds(key, nrounds, saltnum, block);
+	block_to_base64(block, outbuf);
 	}
 

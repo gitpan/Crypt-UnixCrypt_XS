@@ -1,5 +1,11 @@
 Revision history for Perl extension Crypt::UnixCrypt_XS.
-
+0.05
+	- Andrew Main (Zefram) <zefram@fysh.org> generously provided a patch to
+		support the "extended DES" crypt scheme from BSD
+0.04
+	- minor doc fixes
+0.03
+	- minor doc fixes
 0.02
 	- doc fixes
 	- required perl is 5.6 now
