@@ -1,5 +1,5 @@
 #include <stddef.h>
-
+#include <string.h>
 typedef unsigned char des_cblock[8];
 
 void

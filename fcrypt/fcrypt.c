@@ -623,8 +623,8 @@ trad_password_to_key(
 	const char *password,
 	size_t passwordlen)
 	{
-	if(passwordlen > 8) passwordlen = 8;
 	int i;
+	if(passwordlen > 8) passwordlen = 8;
 	for (i=0; i<passwordlen; i++)
 		key[i] = ((unsigned char)password[i]) << 1;
 	for (; i<8; i++)
@@ -660,7 +660,6 @@ des_fcrypt(
 	unsigned long saltnum;
 	unsigned long nrounds;
 	des_cblock block, key;
-	int i;
 
 	if(saltlen == 0)
 		{

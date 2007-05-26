@@ -1,4 +1,7 @@
 Revision history for Perl extension Crypt::UnixCrypt_XS.
+0.06
+	- Guenter Knauf fixed small compile problems for NetWare/Win32
+		and other strict C compilers
 0.05
 	- Andrew Main (Zefram) <zefram@fysh.org> generously provided a patch to
 		support the "extended DES" crypt scheme from BSD

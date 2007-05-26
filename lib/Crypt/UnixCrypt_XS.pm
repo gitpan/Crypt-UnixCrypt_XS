@@ -20,7 +20,7 @@ our @EXPORT = qw(
 	
 );
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 require XSLoader;
 XSLoader::load('Crypt::UnixCrypt_XS', $VERSION);
@@ -129,7 +129,7 @@ written by Eric Young, eay@psych.uq.oz.au.
 Fixes, Bug Reports, Docs have been generously provided by:
 
   Andrew Main (Zefram) <zefram@fysh.org>
-
+  Guenter Knauf
 Thanks!
 
 =head1 COPYRIGHT AND LICENSE
