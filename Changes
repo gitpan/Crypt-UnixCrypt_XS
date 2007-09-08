@@ -1,4 +1,6 @@
 Revision history for Perl extension Crypt::UnixCrypt_XS.
+0.07	- Andrew Main (Zefram) generously provided a patch to prevent 
+		Crypt::UnixCrypt_XS getting confused with UTF8-encoded PV.
 0.06
 	- Guenter Knauf fixed small compile problems for NetWare/Win32
 		and other strict C compilers

@@ -6,6 +6,31 @@
 
 #include <./fcrypt/fcrypt.h>
 
+static void
+sv_to_octets(U8 **octets_p, STRLEN *len_p, bool *must_free_p, SV *sv)
+{
+  U8 *in_str = SvPV(sv, *len_p);
+  bool is_utf8 = !!SvUTF8(sv);
+  *octets_p = bytes_from_utf8(in_str, len_p, &is_utf8);
+  if(is_utf8)
+    croak("input must contain only octets");
+  *must_free_p = *octets_p != in_str;
+}
+
+static void
+sv_to_cblock(des_cblock block, SV *in_block)
+{
+  U8 *in_octets;
+  STRLEN in_len;
+  bool must_free;
+  sv_to_octets(&in_octets, &in_len, &must_free, in_block);
+  if(in_len != 8)
+    croak("data block must be eight octets long");
+  memcpy(block, in_octets, 8);
+  if(must_free)
+    Safefree(in_octets);
+}
+
 MODULE = Crypt::UnixCrypt_XS		PACKAGE = Crypt::UnixCrypt_XS		
 
 char *
@@ -13,12 +38,16 @@ crypt( password, salt )
   SV *password
   SV *salt
   CODE:
-    size_t passwordlen, saltlen;
-    const char *passwordstr, *saltstr;
+    STRLEN password_len, salt_len;
+    U8 *password_octets, *salt_octets;
+    bool password_tofree, salt_tofree;
     char outbuf[21];
-    passwordstr = SvPV(password, passwordlen);
-    saltstr = SvPV(salt, saltlen);
-    des_fcrypt(passwordstr, passwordlen, saltstr, saltlen, outbuf);
+    sv_to_octets(&password_octets, &password_len, &password_tofree, password);
+    sv_to_octets(&salt_octets, &salt_len, &salt_tofree, salt);
+    des_fcrypt((char *)password_octets, password_len,
+	(char *)salt_octets, salt_len, outbuf);
+    if(salt_tofree)
+      Safefree(salt_octets);
     RETVAL = outbuf;
   OUTPUT:
     RETVAL
@@ -30,15 +59,15 @@ crypt_rounds( password, nrounds, saltnum, in_block )
   unsigned long saltnum
   SV *in_block
   CODE:
-    size_t passwordlen, blocklen;
-    const char *passwordstr, *blockstr;
+    STRLEN password_len;
+    U8 *password_octets;
+    bool password_tofree;
     des_cblock key, block;
-    blockstr = SvPV(in_block, blocklen);
-    if(blocklen != 8)
-      croak("data block must be eight bytes long");
-    memcpy(block, blockstr, 8);
-    passwordstr = SvPV(password, passwordlen);
-    trad_password_to_key(key, passwordstr, passwordlen);
+    sv_to_octets(&password_octets, &password_len, &password_tofree, password);
+    sv_to_cblock(block, in_block);
+    trad_password_to_key(key, (char *)password_octets, password_len);
+    if(password_tofree)
+      Safefree(password_octets);
     crypt_rounds(key, nrounds, saltnum, block);
     RETVAL = newSVpvn(block, 8);
   OUTPUT:
@@ -48,12 +77,15 @@ SV *
 fold_password( password )
   SV *password
   CODE:
-    size_t passwordlen;
-    const char *passwordstr;
+    STRLEN password_len;
+    U8 *password_octets;
+    bool password_tofree;
     des_cblock key;
     int i;
-    passwordstr = SvPV(password, passwordlen);
-    ext_password_to_key(key, passwordstr, passwordlen);
+    sv_to_octets(&password_octets, &password_len, &password_tofree, password);
+    ext_password_to_key(key, (char *)password_octets, password_len);
+    if(password_tofree)
+      Safefree(password_octets);
     for(i=0; i<8; i++)
       key[i] = (key[i] & 0xfe) >> 1;
     RETVAL = newSVpvn(key, 8);
@@ -64,13 +96,16 @@ SV *
 base64_to_block( base64 )
   SV *base64
   CODE:
-    size_t base64len;
-    const char *base64str;
+    STRLEN base64_len;
+    U8 *base64_octets;
+    bool base64_tofree;
     des_cblock block;
-    base64str = SvPV(base64, base64len);
-    if(base64len != 11)
+    sv_to_octets(&base64_octets, &base64_len, &base64_tofree, base64);
+    if(base64_len != 11)
       croak("data block in base 64 must be eleven characters long");
-    base64_to_block(block, base64str);
+    base64_to_block(block, (char *)base64_octets);
+    if(base64_tofree)
+      Safefree(base64_octets);
     RETVAL = newSVpvn(block, 8);
   OUTPUT:
     RETVAL
@@ -79,14 +114,9 @@ char *
 block_to_base64( in_block )
   SV *in_block
   CODE:
-    size_t blocklen;
-    const char *blockstr;
     des_cblock block;
     char base64[12];
-    blockstr = SvPV(in_block, blocklen);
-    if(blocklen != 8)
-      croak("data block must be eight bytes long");
-    memcpy(block, blockstr, 8);
+    sv_to_cblock(block, in_block);
     block_to_base64(block, base64);
     RETVAL = base64;
   OUTPUT:
@@ -96,13 +126,15 @@ unsigned long
 base64_to_int24( base64 )
   SV *base64
   CODE:
-    size_t base64len;
-    const char *base64str;
-    des_cblock block;
-    base64str = SvPV(base64, base64len);
-    if(base64len != 4)
+    STRLEN base64_len;
+    U8 *base64_octets;
+    bool base64_tofree;
+    sv_to_octets(&base64_octets, &base64_len, &base64_tofree, base64);
+    if(base64_len != 4)
       croak("24-bit integer in base 64 must be four characters long");
-    RETVAL = base64_to_int24(base64str);
+    RETVAL = base64_to_int24((char *)base64_octets);
+    if(base64_tofree)
+      Safefree(base64_octets);
   OUTPUT:
     RETVAL
 
@@ -120,13 +152,15 @@ unsigned long
 base64_to_int12( base64 )
   SV *base64
   CODE:
-    size_t base64len;
-    const char *base64str;
-    des_cblock block;
-    base64str = SvPV(base64, base64len);
-    if(base64len != 2)
+    STRLEN base64_len;
+    U8 *base64_octets;
+    bool base64_tofree;
+    sv_to_octets(&base64_octets, &base64_len, &base64_tofree, base64);
+    if(base64_len != 2)
       croak("12-bit integer in base 64 must be two characters long");
-    RETVAL = base64_to_int12(base64str);
+    RETVAL = base64_to_int12((char *)base64_octets);
+    if(base64_tofree)
+      Safefree(base64_octets);
   OUTPUT:
     RETVAL
 
