@@ -13,4 +13,5 @@ t/Crypt-UnixCrypt_XS.t
 t/extvec.t
 t/pieces.t
 t/tradvec.t
+t/utf8.t
 UnixCrypt_XS.xs

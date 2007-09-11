@@ -46,6 +46,8 @@ crypt( password, salt )
     sv_to_octets(&salt_octets, &salt_len, &salt_tofree, salt);
     des_fcrypt((char *)password_octets, password_len,
 	(char *)salt_octets, salt_len, outbuf);
+    if(password_tofree)
+      Safefree(password_octets);
     if(salt_tofree)
       Safefree(salt_octets);
     RETVAL = outbuf;

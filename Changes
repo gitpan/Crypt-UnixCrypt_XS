@@ -1,4 +1,7 @@
 Revision history for Perl extension Crypt::UnixCrypt_XS.
+0.08	- Andrew Main (Zefram) provided a patch to fix a small memmory leak
+		introduced in 0.07. Also a new testcase for utf8 data is
+		included.
 0.07	- Andrew Main (Zefram) generously provided a patch to prevent 
 		Crypt::UnixCrypt_XS getting confused with UTF8-encoded PV.
 0.06
