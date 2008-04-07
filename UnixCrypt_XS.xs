@@ -4,6 +4,48 @@
 
 #include "ppport.h"
 
+#ifndef bytes_from_utf8
+
+/* 5.6.0 has UTF-8 scalars, but lacks the utility bytes_from_utf8() */
+
+static U8 *
+bytes_from_utf8(U8 *orig, STRLEN *len_p, bool *is_utf8_p)
+{
+	STRLEN orig_len = *len_p;
+	U8 *orig_end = orig + orig_len;
+	STRLEN new_len = orig_len;
+	U8 *new;
+	U8 *p, *q;
+	if(!*is_utf8_p)
+		return orig;
+	for(p = orig; p != orig_end; ) {
+		U8 fb = *p++, sb;
+		if(fb <= 0x7f)
+			continue;
+		if(p == orig_end || !(fb >= 0xc2 && fb <= 0xc3))
+			return orig;
+		sb = *p++;
+		if(!(sb >= 0x80 && sb <= 0xbf))
+			return orig;
+		new_len--;
+	}
+	if(new_len == orig_len) {
+		*is_utf8_p = 0;
+		return orig;
+	}
+	Newz(0, new, new_len+1, U8);
+	for(p = orig, q = new; p != orig_end; ) {
+		U8 fb = *p++;
+		*q++ = fb <= 0x7f ? fb : ((fb & 0x03) << 6) | (*p++ & 0x3f);
+	}
+	*q = 0;
+	*len_p = new_len;
+	*is_utf8_p = 0;
+	return new;
+}
+
+#endif /* !bytes_from_utf8 */
+
 #include <./fcrypt/fcrypt.h>
 
 static void
