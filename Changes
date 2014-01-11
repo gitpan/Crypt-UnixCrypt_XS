@@ -1,5 +1,7 @@
 Revision history for Perl extension Crypt::UnixCrypt_XS.
 
+0.10	- Update PPPort, PERL_UNUSED_DECL is defined in perl 5.18 core and PPPort.
+
 0.09	- Andrew Main (Zefram) patch provides the subroutine bytes_from_utf8, that is missed for perl 5.6.
 
 0.08	- Andrew Main (Zefram) provided a patch to fix a small memmory leak
